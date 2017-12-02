@@ -135,6 +135,7 @@ int readFile(FILE* fd, char** buffer, int bytes) {
 	int len = 0, cap = BUF_SIZE, r;
 	char buf[BUF_SIZE];
 	*buffer = malloc(BUF_SIZE * sizeof(char));
+	/* 如果一次读取不完就继续读取，最终 len 为文件实际长度，cap 为申请的空间大小，len <= cap */
 	while((r = fread(buf, sizeof(char), BUF_SIZE, fd)) > 0) {
 		if(len + r >= cap) {
 			cap *= 2;
@@ -144,7 +145,12 @@ int readFile(FILE* fd, char** buffer, int bytes) {
 		len += r;
 	}
 	/* Pad the last block with zeros to signal end of cryptogram. An additional block is added if there is no room */
-	if(len + bytes - len % bytes > cap) *buffer = realloc(*buffer, len + bytes - len % bytes);
+	/* 因为每次对一个和 n 等长的 block 加密，所以需要对数据末尾进行填充 */
+	/* 当 len % bytes != 0 时，需要补充 bytes - len % bytes 个 0 字节。这里选择总是填充字节 */
+	int final_len = len + (bytes - len % bytes);
+	if(final_len > cap)
+		*buffer = realloc(*buffer, final_len);
+
 	do {
 		(*buffer)[len] = '\0';
 		len++;
